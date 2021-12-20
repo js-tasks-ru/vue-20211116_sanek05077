@@ -1,8 +1,20 @@
 <template>
   <div class="image-uploader">
-    <label class="image-uploader__preview image-uploader__preview-loading" style="--bg-url: url('/link.jpeg')">
-      <span class="image-uploader__text">Загрузить изображение</span>
-      <input type="file" accept="image/*" class="image-uploader__input" />
+    <label
+      class="image-uploader__preview"
+      :class="{ 'image-uploader__preview-loading': loading }"
+      :style="{ '--bg-url': bgImage }"
+    >
+      <span class="image-uploader__text">{{ uploadMessage }}</span>
+      <input
+        ref="input"
+        v-bind="$attrs"
+        type="file"
+        accept="image/*"
+        class="image-uploader__input"
+        @change="uploadFile($event.target.files[0])"
+        @click="removeFile($event)"
+      />
     </label>
   </div>
 </template>
@@ -10,6 +22,69 @@
 <script>
 export default {
   name: 'UiImageUploader',
+  inheritAttrs: false,
+  props: {
+    preview: {
+      type: String,
+    },
+    uploader: {
+      type: Function,
+    },
+  },
+  emits: ['select', 'remove', 'upload', 'error'],
+  data() {
+    return {
+      loading: false,
+      status: this.preview ? 'preview' : 'empty',
+    };
+  },
+  computed: {
+    bgImage() {
+      return this.preview ? `url("${this.preview}")` : 'var(--default-cover)';
+    },
+    uploadMessage() {
+      if (this.loading) {
+        return 'Загрузка...';
+      } else if (this.status === 'empty') {
+        return 'Загрузить изображение';
+      }
+      return 'Удалить изображение';
+    },
+  },
+  methods: {
+    uploadFile(file) {
+      if (this.status === 'empty') {
+        this.$emit('select', file);
+        if (this.uploader) {
+          this.loading = true;
+          this.uploader(file)
+            .then((result) => {
+              this.$emit('upload', result);
+              this.loading = false;
+              this.status = 'preview';
+            })
+            .catch((err) => {
+              this.$emit('error', err);
+              this.loading = false;
+              this.status = 'empty';
+              this.$refs.input.value = null;
+            });
+        } else {
+          this.loading = false;
+          this.status = 'preview';
+          this.$refs.input.value = null;
+        }
+      }
+    },
+    removeFile(e) {
+      if (this.status === 'preview') {
+        e.preventDefault();
+        this.$emit('remove');
+        this.status = 'empty';
+        this.$refs.input.value = null;
+      }
+    },
+  },
 };
 </script>
 
